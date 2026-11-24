@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>迪士尼夢幻星光記憶翻牌遊戲</title>
+    <!-- 引入 Google Fonts 繁體中文圓體與優雅襯線字體 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 自訂童話夢幻主題樣式 */
+        :root {
+            --disney-gold: #ffd700;
+            --disney-gold-light: #fff3b0;
+            --disney-night-deep: #070b19;
+            --disney-night-mid: #101b3d;
+            --disney-royal-blue: #1e3a8a;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: radial-gradient(ellipse at top, #172a5e 0%, #0b132b 55%, #050814 100%);
+            color: #f8fafc;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* 背景星光粒子畫布 */
+        #starfield-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* 慶祝彩帶畫布 */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        /* 魔法標題光暈 */
+        .magic-title {
+            background: linear-gradient(135deg, #fff6cc 0%, #ffd700 45%, #f59e0b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.45));
+        }
+
+        /* 玻璃擬態面板 */
+        .glass-panel {
+            background: rgba(16, 27, 61, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 215, 0, 0.25);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 0 15px rgba(255, 215, 0, 0.08);
+        }
+
+        /* 魔法按鈕特效 */
+        .magic-btn {
+            background: linear-gradient(135deg, rgba(30, 58, 138, 0.85), rgba(49, 46, 129, 0.9));
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .magic-btn:hover {
+            transform: translateY(-2px);
+            border-color: #ffd700;
+            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.4);
+        }
+
+        .magic-btn:active {
+            transform: translateY(1px) scale(0.97);
+        }
+
+        .magic-btn.active-diff {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #090d16;
+            font-weight: 800;
+            border-color: #fef08a;
+            box-shadow: 0 0 18px rgba(245, 158, 11, 0.6);
+        }
+
+        /* 3D 翻牌容器與卡片結構 */
+        .card-scene {
+            perspective: 1000px;
+            aspect-ratio: 3 / 4;
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s cubic-bezier(0.34, 1.4, 0.64, 1);
+            transform-style: preserve-3d;
+        }
+
+        .card-scene.is-flipped .card-inner,
+        .card-scene.is-matched .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 1rem;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 牌背面：皇家星夜藍與魔法金徽章 */
+        .card-back {
+            background: linear-gradient(145deg, #172554 0%, #1e1b4b 50%, #0f172a 100%);
+            border: 2px solid rgba(255, 215, 0, 0.55);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* 牌背微光掃過動畫 */
+        .card-back::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                45deg,
+                transparent 40%,
+                rgba(255, 215, 0, 0.14) 50%,
+                transparent 60%
+            );
+            animation: cardShimmer 4.5s infinite linear;
+            pointer-events: none;
+        }
+
+        /* 牌背內框線 */
+        .card-back::after {
+            content: '';
+            position: absolute;
+            inset: 6px;
+            border: 1px dashed rgba(255, 215, 0, 0.35);
+            border-radius: 0.7rem;
+            pointer-events: none;
+        }
+
+        @keyframes cardShimmer {
+            0% { transform: translateX(-30%) translateY(-30%) rotate(0deg); }
+            100% { transform: translateX(30%) translateY(30%) rotate(0deg); }
+        }
+
+        .card-scene:not(.is-flipped):not(.is-matched):hover .card-back {
+            border-color: #ffd700;
+            box-shadow: 0 0 18px rgba(255, 215, 0, 0.45);
+        }
+
+        /* 牌正面：角色插畫卡片 */
+        .card-front {
+            transform: rotateY(180deg);
+            border: 2px solid #ffd700;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.45rem 0.35rem;
+        }
+
+        /* 配對成功魔法發光動畫 */
+        .card-scene.is-matched .card-front {
+            animation: matchGlow 0.9s ease-out forwards;
+            border-color: #ffffff;
+        }
+
+        @keyframes matchGlow {
+            0% {
+                box-shadow: 0 0 5px #ffd700;
+                transform: rotateY(180deg) scale(1);
+            }
+            45% {
+                box-shadow: 0 0 30px #ffd700, 0 0 55px #60a5fa;
+                transform: rotateY(180deg) scale(1.06);
+            }
+            100% {
+                box-shadow: 0 0 14px rgba(255, 215, 0, 0.65);
+                transform: rotateY(180deg) scale(1);
+            }
+        }
+
+        /* 錯誤搖晃動畫 */
+        @keyframes cardShake {
+            0%, 100% { transform: rotateY(180deg) translateX(0); }
+            25% { transform: rotateY(180deg) translateX(-5px); }
+            75% { transform: rotateY(180deg) translateX(5px); }
+        }
+
+        .card-scene.is-wrong .card-inner {
+            animation: cardShake 0.35s ease-in-out;
+        }
+
+        /* 閃爍星星粒子 DOM 特效 */
+        .sparkle-burst {
+            position: fixed;
+            pointer-events: none;
+            z-index: 60;
+            animation: sparklePop 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes sparklePop {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(0.2) rotate(0deg);
+            }
+            60% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+                transform: translate(var(--tx), var(--ty)) scale(1.1) rotate(180deg);
+            }
+        }
+
+        /* 彈出視窗動畫 */
+        .modal-backdrop {
+            background: rgba(5, 8, 20, 0.82);
+            backdrop-filter: blur(8px);
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-card {
+            animation: modalFloatIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        @keyframes modalFloatIn {
+            0% { opacity: 0; transform: scale(0.8) translateY(20px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-between py-4 px-3 sm:px-6">
+
+    <!-- 背景魔法星光畫布 -->
+    <canvas id="starfield-canvas"></canvas>
+    <!-- 過關彩帶畫布 -->
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- 頂部標題與控制區 -->
+    <header class="relative z-10 w-full max-w-4xl flex flex-col items-center gap-3 mb-3">
+        <!-- 城堡皇冠裝飾與遊戲主標題 -->
+        <div class="flex items-center justify-center gap-2 sm:gap-3 text-center">
+            <svg class="w-7 h-7 sm:w-9 sm:h-9 text-amber-300 drop-shadow-[0_0_8px_rgba(255,215,0,0.8)]" viewBox="0 0 64 64" fill="currentColor">
+                <path d="M32 6l4 10h10l-8 6 3 10-9-6-9 6 3-10-8-6h10z"/>
+                <path d="M14 54V34l6-6 6 6v20H14zm24 0V34l6-6 6 6v20H38zM24 54V26l8-8 8 8v28H24z" opacity="0.9"/>
+                <rect x="10" y="54" width="44" height="4" rx="2"/>
+            </svg>
+            <h1 class="text-2xl sm:text-4xl font-black tracking-wider magic-title">
+                迪士尼夢幻記憶翻牌
+            </h1>
+            <svg class="w-7 h-7 sm:w-9 sm:h-9 text-amber-300 drop-shadow-[0_0_8px_rgba(255,215,0,0.8)]" viewBox="0 0 64 64" fill="currentColor">
+                <path d="M32 6l4 10h10l-8 6 3 10-9-6-9 6 3-10-8-6h10z"/>
+                <path d="M14 54V34l6-6 6 6v20H14zm24 0V34l6-6 6 6v20H38zM24 54V26l8-8 8 8v28H24z" opacity="0.9"/>
+                <rect x="10" y="54" width="44" height="4" rx="2"/>
+            </svg>
+        </div>
+
+        <!-- 難度選擇與功能按鈕列 -->
+        <div class="w-full flex flex-wrap items-center justify-between gap-2 glass-panel rounded-2xl px-3 py-2.5 sm:px-5">
+            <!-- 難度切換按鈕組 -->
+            <div class="flex items-center gap-1.5 sm:gap-2">
+                <span class="text-xs sm:text-sm text-amber-200/80 font-medium hidden md:inline">魔法難度：</span>
+                <button onclick="setDifficulty('easy')" id="btn-easy" class="magic-btn px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold text-amber-100">
+                    簡單 (4×3)
+                </button>
+                <button onclick="setDifficulty('normal')" id="btn-normal" class="magic-btn active-diff px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold">
+                    標準 (4×4)
+                </button>
+                <button onclick="setDifficulty('hard')" id="btn-hard" class="magic-btn px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold text-amber-100">
+                    困難 (6×4)
+                </button>
+            </div>
+
+            <!-- 操作按鈕組（重新開始 / 音效切換） -->
+            <div class="flex items-center gap-2">
+                <button onclick="toggleSound()" id="btn-sound" title="切換魔法音效" class="magic-btn p-2 rounded-xl text-amber-200 flex items-center justify-center">
+                    <!-- 喇叭開啟圖示 -->
+                    <svg id="icon-sound-on" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                    </svg>
+                    <!-- 靜音圖示 -->
+                    <svg id="icon-sound-off" class="w-5 h-5 hidden text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>
+                    </svg>
+                </button>
+
+                <button onclick="restartGame()" class="magic-btn px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold text-amber-200 flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    <span>重新開始</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 遊戲狀態數據面板 -->
+        <div class="w-full grid grid-cols-4 gap-2 sm:gap-3">
+            <div class="glass-panel rounded-xl py-2 px-2 sm:px-4 flex flex-col items-center justify-center">
+                <span class="text-[11px] sm:text-xs text-blue-200/80">步數</span>
+                <span id="stat-moves" class="text-lg sm:text-2xl font-black text-amber-300">0</span>
+            </div>
+            <div class="glass-panel rounded-xl py-2 px-2 sm:px-4 flex flex-col items-center justify-center">
+                <span class="text-[11px] sm:text-xs text-blue-200/80">計時</span>
+                <span id="stat-time" class="text-lg sm:text-2xl font-black text-sky-300 font-mono">00:00</span>
+            </div>
+            <div class="glass-panel rounded-xl py-2 px-2 sm:px-4 flex flex-col items-center justify-center">
+                <span class="text-[11px] sm:text-xs text-blue-200/80">配對進度</span>
+                <span id="stat-pairs" class="text-lg sm:text-2xl font-black text-emerald-300">0 / 8</span>
+            </div>
+            <div class="glass-panel rounded-xl py-2 px-2 sm:px-4 flex flex-col items-center justify-center">
+                <span class="text-[11px] sm:text-xs text-blue-200/80">最佳步數</span>
+                <span id="stat-best" class="text-lg sm:text-2xl font-black text-pink-300">--</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 卡片網格主遊戲區 -->
+    <main class="relative z-10 w-full max-w-3xl flex-1 flex items-center justify-center my-1">
+        <div id="game-board" class="w-full grid grid-cols-4 gap-2.5 sm:gap-3.5 transition-all duration-300">
+            <!-- 卡片將由 JavaScript 動態生成 -->
+        </div>
+    </main>
+
+    <!-- 底部提示文字 -->
+    <footer class="relative z-10 mt-3 text-center text-xs text-blue-200/60">
+        ✨ 點擊魔法卡牌尋找成雙成對的迪士尼夥伴 ✨
+    </footer>
+
+    <!-- 過關慶祝彈出視窗 -->
+    <div id="victory-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-backdrop">
+        <div class="modal-card glass-panel border-2 border-amber-300/80 rounded-3xl max-w-md w-full p-6 sm:p-8 text-center relative overflow-hidden shadow-[0_0_50px_rgba(255,215,0,0.4)]">
+            <!-- 頂部皇冠光芒 -->
+            <div class="mx-auto w-16 h-16 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-200 flex items-center justify-center shadow-[0_0_25px_rgba(255,215,0,0.8)] mb-4">
+                <svg class="w-10 h-10 text-indigo-950" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/>
+                </svg>
+            </div>
+
+            <h2 class="text-2xl sm:text-3xl font-black magic-title mb-1">魔法奇蹟達成！</h2>
+            <p id="victory-subtitle" class="text-sm text-amber-100/90 mb-4">你成功喚醒了所有迪士尼星光夥伴！</p>
+
+            <!-- 星級評價展示 -->
+            <div id="victory-stars" class="flex items-center justify-center gap-2 my-3 text-4xl">
+                <!-- 由 JS 動態填入星星 -->
+            </div>
+
+            <!-- 成績統計方塊 -->
+            <div class="grid grid-cols-2 gap-3 my-5">
+                <div class="bg-slate-900/70 border border-amber-400/30 rounded-2xl p-3">
+                    <div class="text-xs text-blue-200/80 mb-1">總共耗時</div>
+                    <div id="final-time" class="text-xl sm:text-2xl font-black text-sky-300 font-mono">00:00</div>
+                </div>
+                <div class="bg-slate-900/70 border border-amber-400/30 rounded-2xl p-3">
+                    <div class="text-xs text-blue-200/80 mb-1">翻牌步數</div>
+                    <div id="final-moves" class="text-xl sm:text-2xl font-black text-amber-300">0 步</div>
+                </div>
+            </div>
+
+            <!-- 新紀錄徽章 -->
+            <div id="new-record-badge" class="hidden mb-4 py-1 px-3 rounded-full bg-gradient-to-r from-pink-500/30 via-amber-400/30 to-pink-500/30 border border-amber-300/60 text-xs font-bold text-amber-200">
+                🏆 恭喜刷新本難度最佳步數紀錄！
+            </div>
+
+            <button onclick="closeModalAndRestart()" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-indigo-950 font-black text-base sm:text-lg shadow-[0_0_20px_rgba(255,215,0,0.6)] hover:brightness-110 active:scale-95 transition-all">
+                ✨ 再玩一次魔法挑戰 ✨
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * ==========================================
+         * 1. 迪士尼經典角色資料庫與專屬 SVG 矢量插畫
+         * ==========================================
+         */
+        const DISNEY_CHARACTERS = [
+            {
+                id: 'mickey',
+                name: '米奇',
+                enName: 'Mickey Mouse',
+                bgGradient: 'linear-gradient(145deg, #fff1f2 0%, #ffe4e6 55%, #fecdd3 100%)',
+                badgeBg: '#dc2626',
+                textColor: '#991b1b',
+                svg: `
+                <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+                    <!-- 經典圓耳與頭部剪影 -->
+                    <circle cx="33" cy="34" r="20" fill="#18181b"/>
+                    <circle cx="87" cy="34" r="20" fill="#18181b"/>
+                    <circle cx="60" cy="64" r="30" fill="#18181b"/>
+                    <!-- 紅褲與雙金扣 -->
+                    <path d="M33 76 C33 96, 87 96, 87 76 Z" fill="#ef4444"/>
+                    <ellipse cx="50" cy="83" rx="4.5" ry="6.5" fill="#facc15"/>
+                    <ellipse cx="70" cy="83" rx="4.5" ry="6.5" fill="#facc15"/>
+                    <!-- 魔法星光點綴 -->
+                    <path d="M60 44 l2.5 5 5.5 1 -4 4 1 5.5 -5-2.5 -5 2.5 1-5.5 -4-4 5.5-1z" fill="#fde047"/>
+                </svg>`
+            },
+            {
+                id: 'minnie',
+                name: '米妮',
+                enName: 'Minnie Mouse',
+                bgGradient: 'linear-gradient(145deg, #fdf2f8 0%, #fce7f3 55%, #fbcfe8 100%)',
+                badgeBg: '#db2777',
+                textColor: '#9d174d',
+                svg: `
+                <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+                    <!-- 圓耳與頭部 -->
+                    <circle cx="33" cy="36" r="19" fill="#18181b"/>
+                    <circle cx="87" cy="36" r="19" fill="#18181b"/>
+                    <circle cx="60" cy="68" r="28" fill="#18181b"/>
+                    <!-- 經典粉紅波點大蝴蝶結 -->
+                    <path d="M60 32 C44 16, 26 24, 34 40 C40 48, 52 40, 60 36 Z" fill="#ec4899"/>
+                    <path d="M60 32 C76 16, 94 24, 86 40 C80 48, 68 40, 60 36 Z" fill="#ec4899"/>
+                    <circle cx="60" cy="34" r="7" fill="#f43f5e"/>
+                    <!-- 蝴蝶結白色圓點 -->
+                    <circle cx="42" cy="28" r="2.8" fill="#ffffff"/>
+                    <circle cx="47" cy="36" r="2.5" fill="#ffffff"/>
+                    <circle cx="78" cy="28" r="2.8" fill="#ffffff"/>
+                    <circle cx="73" cy="36" r="2.5" fill="#ffffff"/>
+                </svg>`
+            },
+            {
+                id: 'donald',
+                name: '唐老鴨',
+                enName: 'Donald Duck',
+                bgGradient: 'linear-gradient(145deg, #eff6ff 0%, #dbeafe 55%, #bfdbfe 100%)',
+                badgeBg: '#2563eb',
+                textColor: '#1e40af',
+                svg: `
+                <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+                    <!-- 經典水手藍帽 -->
+                    <ellipse cx="60" cy="34" rx="30" ry="13" fill="#2563eb"/>
+                    <path d="M35 38 Q60 46 85 38 L82 45 Q60 52 38 45 Z" fill="#1e293b"/>
+                    <path d="M84 37 Q98 44 94 54" stroke="#1e293b" stroke-width="4" fill="none" stroke-linecap="round"/>
+                    <!-- 鴨嘴輪廓 -->
+                    <path d="M36 62 Q60 50 84 62 Q88 76 60 78 Q32 76 36 62 Z" fill="#f59e0b"/>
+                    <path d="M42 64 Q60 58 78 64" stroke="#d97706" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                    <!-- 水手紅領結 -->
+                    <path d="M60 88 L40 79 L44 97 Z" fill="#ef4444"/>
+                    <path d="M60 88 L80 79 L76 97 Z" fill="#ef4444"/>
+                    <circle cx="60" cy="88" r="5" fill="#b91c1c"/>
+                </svg>`
+            },
+            {
+                id: 'pooh',
+                name: '小熊維尼',
+                enName: 'Winnie the Pooh',
+                bgGradient: 'linear-gradient(145deg, #fefce8 0%, #fef08a 55%, #fde047 100%)',
+                badgeBg: '#d97706',
+                textColor: '#92400e',
+                svg: `
+                <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+                    <!-- 維尼圓耳與頭型 -->
+                    <circle cx="35" cy="32" r="12" fill="#f59e0b"/>
+                    <circle cx="85" cy="32" r="12" fill="#f59e0b"/>
+                    <path d="M34 54 C34 32, 86 32, 86 54 C88 72, 76 80, 60 80 C44 80, 32 72, 34 54 Z" fill="#fbbf24"/>
+                    <!-- 經典紅上衣 -->
+                    <path d="M32 78 Q60 84 88 78 L93 98 Q60 104 27 98 Z" fill="#dc2626"/>
+                    <!-- 鼻子與微笑 -->
+                    <ellipse cx="60" cy="60" rx="6" ry="4.5" fill="#78350f"/>
+                    <path d="M51 68 Q60 74 69 68" stroke="#78350f" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                    <!-- 蜂蜜愛心 -->
+                    <path d="M60 86 C56 81, 49 84, 53 90 L60 96 L67 90 C71 84, 64 81, 60 86 Z" fill="#fde047"/>
+                </svg>`
+            },
+            {
+                id: 'elsa',
+                name: '艾莎',
+                enName: 'Elsa',
+                bgGradient: 'linear-gradient(145deg, #ecfeff 0%, #cffafe 55%, #a5f3fc 100%)',
+                badgeBg: '#0284c7',
+                textColor: '#075985',
+                svg: `
+                <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+                    <!-- 冰雪魔法光環 -->
+                    <circle cx="60" cy="60" r="38" fill="none" stroke="#38bdf8" stroke-width="2" stroke-dasharray="6 4"/>
+                    <!-- 精緻六角雪花結晶 -->
+                    <g stroke="#0284c7" stroke-width="4.5" stroke-linecap="round">
+                        <line x1="60" y1="22" x2="60" y2="98"/>
+                        <line x1="27" y1="41" x2="93" y2="79"/>
+                        <line x1="27" y1="79" x2="93" y2="41"/>
+                    </g>
+                    <g stroke="#38bdf8" stroke-width="3" stroke-linecap="round">
+                        <polyline points="52,32 60,40 68,32"/>
+                        <polyline points="52,88 60,80 68,88"/>
+                        <polyline points="32,52 42,50 40,40"/>
+                        <polyline points="88,68 78,70 80,80"/>
+                        <polyline points="40,80 42,70 32,68"/>
+                        <polyline points="80,40 78,50 88,52"/>
+                    </g>
+                    <circle cx="60" cy="60" r="9" fill="#e0f2fe" stroke="#0284c7" stroke-width="3"/>
+                </svg>`
+            },
+            {
+                id: 'stitch',
+                name: '史迪奇',
+                enName: 'Stitch',
+                bgGradient: 'linear-gradient(145deg, #eef2ff 0%, #e0e7ff 55%, #c7d2fe 100%)',
+                badgeBg: '#4338ca',
+                textColor: '#312e81',
+                svg: `
+                <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+                    <!-- 史迪奇标志性大長耳 -->
+                    <path d="M36 52 C12 34, 10 18, 24 22 C36 26, 44 40, 46 48 Z" fill="#3b82f6"/>
+                    <path d="M34 48 C18 35, 16 25, 25 27 C32 29, 39 39, 41 45 Z" fill="#f472b6"/>
+                    <path d="M84 52 C108 34, 110 18, 96 22 C84 26, 76 40, 74 48 Z" fill="#3b82f6"/>
+                    <path d="M86 48 C102 35, 104 25, 95 27 C88 29, 81 39, 79 45 Z" fill="#f472b6"/>
+                    <!-- 藍色頭部與大鼻子 -->
+                    <ellipse cx="60" cy="66" rx="28" ry="24" fill="#2563eb"/>
+                    <ellipse cx="48" cy="64" rx="8" ry="10" fill="#93c5fd"/>
+                    <ellipse cx="72" cy="64" rx="8" ry="10" fill="#93c5fd"/>
+                    <circle cx="49" cy="64" r="5" fill="#0f172a"/>
+                    <circle cx="71" cy="64" r="5" fill="#0f172a"/>
+                    <ellipse cx="60" cy="72" rx="7" ry="5" fill="#1e3a8a"/>
+                    <!-- 夏威夷扶桑花 -->
+                    <circle cx="82" cy="38" r="7" fill="#f43f5e"/>
+                    <circle cx="82" cy="38" r="2.5" fill="#fde047"/>
+                </svg>`
+            },
+            {
+                id: 'buzz',
+                name: '巴斯光年',
+                enName: 'Buzz Lightyear',
+                bgGradient: 'linear-gradient(145deg, #f0fdf4 0%, #dcfce7 55%, #bbf7d0 100%)',
+                badgeBg: '#16a34a',
+                textColor: '#14532d',
+                svg: `
+                <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+                    <!-- 太空騎警胸甲與飛翼徽章 -->
+                    <path d="M22 68 L42 54 L78 54 L98 68 L90 88 L30 88 Z" fill="#f8fafc" stroke="#64748b" stroke-width="2"/>
+                    <path d="M36 56 L84 56 L78 76 L42 76 Z" fill="#22c55e"/>
+                    <!-- 紫色頭套與胸前按鈕 -->
+                    <path d="M44 54 C44 30, 76 30, 76 54 Z" fill="#7e22ce"/>
+                    <ellipse cx="60" cy="44" rx="11" ry="9" fill="#fed7aa"/>
+                    <rect x="46" y="62" width="7" height="5" rx="1" fill="#ef4444"/>
+                    <rect x="56.5" y="62" width="7" height="5" rx="1" fill="#22c55e" stroke="#ffffff" stroke-width="1"/>
+                    <rect x="67" y="62" width="7" height="5" rx="1" fill="#3b82f6"/>
+                    <!-- 飛向宇宙星環 -->
+                    <ellipse cx="60" cy="84" rx="34" ry="8" fill="none" stroke="#9333ea" stroke-width="3"/>
+                    <polygon points="60,76 63,83 70,83 64,87 66,94 60,90 54,94 56,87 50,83 57,83" fill="#facc15"/>
+                </svg>`
+            },
+            {
+                id: 'simba',
+                name: '辛巴',
+                enName: 'Simba',
+                bgGradient: 'linear-gradient(145deg, #fff7ed 0%, #ffedd5 55%, #fed7aa 100%)',
+                badgeBg: '#ea580c',
+                textColor: '#9a3412',
+                svg: `
+                <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+                    <!-- 榮耀大地太陽背光 -->
+                    <circle cx="60" cy="60" r="36" fill="#fdba74" opacity="0.45"/>
+                    <!-- 拉飛奇繪製的獅子王印記圖騰 -->
+                    <g fill="none" stroke="#c2410c" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+                        <!-- 獅耳 -->
+                        <path d="M36 44 C26 32, 34 22, 46 34"/>
+                        <path d="M84 44 C94 32, 86 22, 74 34"/>
+                        <!-- 獅臉輪廓 -->
+                        <path d="M36 44 C32 64, 44 82, 60 88 C76 82, 88 64, 84 44"/>
+                        <!-- 鬃毛波浪 -->
+                        <path d="M30 58 C24 72, 36 88, 50 94"/>
+                        <path d="M90 58 C96 72, 84 88, 70 94"/>
+                        <!-- 眉眼與獅鼻 -->
+                        <path d="M45 52 L53 55"/>
+                        <path d="M75 52 L67 55"/>
+                        <path d="M54 66 L66 66 L60 73 Z" fill="#ea580c"/>
+                    </g>
+                    <!-- 額頭紅印 -->
+                    <path d="M55 41 Q60 39 65 41" stroke="#dc2626" stroke-width="3.5" stroke-linecap="round"/>
+                </svg>`
+            },
+            {
+                id: 'tinkerbell',
+                name: '奇妙仙子',
+                enName: 'Tinker Bell',
+                bgGradient: 'linear-gradient(145deg, #f7fee7 0%, #ecfccb 55%, #d9f99d 100%)',
+                badgeBg: '#65a30d',
+                textColor: '#3f6212',
+                svg: `
+                <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+                    <!-- 透明仙子雙翅 -->
+                    <path d="M58 58 C24 24, 16 54, 54 64 Z" fill="#bae6fd" opacity="0.75" stroke="#38bdf8" stroke-width="2"/>
+                    <path d="M62 58 C96 24, 104 54, 66 64 Z" fill="#bae6fd" opacity="0.75" stroke="#38bdf8" stroke-width="2"/>
+                    <path d="M58 66 C30 70, 28 92, 56 74 Z" fill="#bae6fd" opacity="0.65" stroke="#38bdf8" stroke-width="1.5"/>
+                    <path d="M62 66 C90 70, 92 92, 64 74 Z" fill="#bae6fd" opacity="0.65" stroke="#38bdf8" stroke-width="1.5"/>
+                    <!-- 魔法棒與金粉 -->
+                    <line x1="34" y1="92" x2="84" y2="36" stroke="#f59e0b" stroke-width="3.5" stroke-linecap="round"/>
+                    <polygon points="84,24 87,33 96,36 87,39 84,48 81,39 72,36 81,33" fill="#fde047" stroke="#eab308" stroke-width="1.5"/>
+                    <circle cx="70" cy="26" r="2.5" fill="#facc15"/>
+                    <circle cx="94" cy="48" r="2" fill="#facc15"/>
+                </svg>`
+            },
+            {
+                id: 'daisy',
+                name: '黛絲',
+                enName: 'Daisy Duck',
+                bgGradient: 'linear-gradient(145deg, #faf5ff 0%, #f3e8ff 55%, #e9d5ff 100%)',
+                badgeBg: '#9333ea',
+                textColor: '#6b21a8',
+                svg: `
+                <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+                    <!-- 紫粉大蝴蝶結 -->
+                    <path d="M60 36 C42 18, 22 28, 32 46 C40 54, 52 44, 60 40 Z" fill="#a855f7"/>
+                    <path d="M60 36 C78 18, 98 28, 88 46 C80 54, 68 44, 60 40 Z" fill="#a855f7"/>
+                    <circle cx="60" cy="38" r="7" fill="#ec4899"/>
+                    <!-- 優雅鴨嘴與手鐲 -->
+                    <path d="M36 68 Q60 56 84 68 Q86 82 60 84 Q34 82 36 68 Z" fill="#fb923c"/>
+                    <path d="M43 70 Q60 64 77 70" stroke="#ea580c" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                    <!-- 閃耀愛心 -->
+                    <path d="M60 92 C54 85, 44 89, 50 97 L60 105 L70 97 C76 89, 66 85, 60 92 Z" fill="#d946ef"/>
+                </svg>`
+            },
+            {
+                id: 'alien',
+                name: '三眼怪',
+                enName: 'Little Green Men',
+                bgGradient: 'linear-gradient(145deg, #ecfdf5 0%, #d1fae5 55%, #a7f3d0 100%)',
+                badgeBg: '#059669',
+                textColor: '#065f46',
+                svg: `
+                <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+                    <!-- 頭頂天線 -->
+                    <line x1="60" y1="22" x2="60" y2="38" stroke="#84cc16" stroke-width="4" stroke-linecap="round"/>
+                    <circle cx="60" cy="20" r="5" fill="#84cc16"/>
+                    <!-- 尖耳與綠色頭型 -->
+                    <polygon points="24,52 36,48 36,64" fill="#84cc16"/>
+                    <polygon points="96,52 84,48 84,64" fill="#84cc16"/>
+                    <ellipse cx="60" cy="64" rx="28" ry="26" fill="#84cc16"/>
+                    <!-- 經典三隻大眼睛 -->
+                    <circle cx="44" cy="58" r="7" fill="#ffffff"/>
+                    <circle cx="60" cy="54" r="7.5" fill="#ffffff"/>
+                    <circle cx="76" cy="58" r="7" fill="#ffffff"/>
+                    <circle cx="44" cy="58" r="3" fill="#0f172a"/>
+                    <circle cx="60" cy="54" r="3.2" fill="#0f172a"/>
+                    <circle cx="76" cy="58" r="3" fill="#0f172a"/>
+                    <!-- 驚喜 O 型嘴與藍領 -->
+                    <ellipse cx="60" cy="74" rx="5" ry="6" fill="#365314"/>
+                    <path d="M36 86 Q60 94 84 86 L88 96 Q60 104 32 96 Z" fill="#2563eb"/>
+                </svg>`
+            },
+            {
+                id: 'tigger',
+                name: '跳跳虎',
+                enName: 'Tigger',
+                bgGradient: 'linear-gradient(145deg, #fff7ed 0%, #fed7aa 55%, #fdba74 100%)',
+                badgeBg: '#c2410c',
+                textColor: '#7c2d12',
+                svg: `
+                <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+                    <!-- 跳跳虎臉龐與虎耳 -->
+                    <circle cx="36" cy="34" r="11" fill="#f97316"/>
+                    <circle cx="84" cy="34" r="11" fill="#f97316"/>
+                    <ellipse cx="60" cy="62" rx="28" ry="26" fill="#f97316"/>
+                    <ellipse cx="60" cy="70" rx="20" ry="16" fill="#fef3c7"/>
+                    <!-- 黑色老虎條紋 -->
+                    <path d="M48 38 L54 44 M72 38 L66 44 M60 36 L60 44" stroke="#18181b" stroke-width="3.5" stroke-linecap="round"/>
+                    <path d="M33 56 L42 58 M87 56 L78 58" stroke="#18181b" stroke-width="3.5" stroke-linecap="round"/>
+                    <!-- 粉紅大鼻子與彈簧尾巴 -->
+                    <ellipse cx="60" cy="64" rx="8" ry="6" fill="#f472b6"/>
+                    <path d="M48 74 Q60 82 72 74" stroke="#18181b" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                    <path d="M60 90 C72 90, 72 98, 56 98 C44 98, 44 106, 64 106" stroke="#f97316" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+                </svg>`
+            }
+        ];
+
+        /**
+         * ==========================================
+         * 2. Web Audio API 魔法音效合成器 (無需外部檔案)
+         * ==========================================
+         */
+        class MagicSoundFX {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) {
+                        this.ctx = new AudioCtx();
+                    }
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            // 翻牌清脆魔法音
+            playFlip() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(520, now);
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.11);
+
+                gain.gain.setValueAtTime(0.14, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.12);
+            }
+
+            // 配對成功：星光豎琴和弦鈴聲
+            playMatch() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                const now = this.ctx.currentTime;
+
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'triangle';
+                    const startTime = now + idx * 0.065;
+                    osc.frequency.setValueAtTime(freq, startTime);
+
+                    gain.gain.setValueAtTime(0.001, startTime);
+                    gain.gain.linearRampToValueAtTime(0.18, startTime + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.45);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.46);
+                });
+            }
+
+            // 配對失敗：柔和低音提示
+            playMismatch() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.linearRampToValueAtTime(210, now + 0.22);
+
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+
+            // 全部過關：迪士尼城堡慶典號角旋律
+            playVictory() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const melody = [
+                    { f: 523.25, t: 0.00, d: 0.14 }, // C5
+                    { f: 659.25, t: 0.14, d: 0.14 }, // E5
+                    { f: 783.99, t: 0.28, d: 0.14 }, // G5
+                    { f: 1046.50, t: 0.44, d: 0.35 }, // C6
+                    { f: 880.00, t: 0.82, d: 0.18 }, // A5
+                    { f: 1046.50, t: 1.04, d: 0.65 } // C6
+                ];
+
+                const now = this.ctx.currentTime;
+                melody.forEach(note => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'triangle';
+                    const start = now + note.t;
+                    osc.frequency.setValueAtTime(note.f, start);
+
+                    gain.gain.setValueAtTime(0.001, start);
+                    gain.gain.linearRampToValueAtTime(0.22, start + 0.03);
+                    gain.gain.exponentialRampToValueAtTime(0.001, start + note.d + 0.1);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start(start);
+                    osc.stop(start + note.d + 0.12);
+                });
+            }
+        }
+
+        const soundFX = new MagicSoundFX();
+
+        /**
+         * ==========================================
+         * 3. 遊戲核心狀態與難度設定
+         * ==========================================
+         */
+        const DIFFICULTIES = {
+            easy: {
+                pairs: 6,
+                colsClass: 'grid-cols-4',
+                maxWidthClass: 'max-w-2xl',
+                starThresholds: [9, 13] // <=9 三星, <=13 二星, >13 一星
+            },
+            normal: {
+                pairs: 8,
+                colsClass: 'grid-cols-4',
+                maxWidthClass: 'max-w-2xl',
+                starThresholds: [13, 19]
+            },
+            hard: {
+                pairs: 12,
+                colsClass: 'grid-cols-4 sm:grid-cols-6',
+                maxWidthClass: 'max-w-4xl',
+                starThresholds: [21, 29]
+            }
+        };
+
+        let currentDifficulty = 'normal';
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let moves = 0;
+        let secondsElapsed = 0;
+        let timerInterval = null;
+        let isGameStarted = false;
+        let isBoardLocked = false;
+
+        // DOM 元素參照
+        const gameBoard = document.getElementById('game-board');
+        const statMoves = document.getElementById('stat-moves');
+        const statTime = document.getElementById('stat-time');
+        const statPairs = document.getElementById('stat-pairs');
+        const statBest = document.getElementById('stat-best');
+        const victoryModal = document.getElementById('victory-modal');
+
+        /**
+         * ==========================================
+         * 4. 遊戲初始化與洗牌邏輯
+         * ==========================================
+         */
+        function setDifficulty(diff) {
+            if (currentDifficulty === diff && gameBoard.children.length > 0) return;
+            currentDifficulty = diff;
+
+            // 更新按鈕樣式
+            ['easy', 'normal', 'hard'].forEach(key => {
+                const btn = document.getElementById(`btn-${key}`);
+                if (key === diff) {
+                    btn.classList.add('active-diff');
+                    btn.classList.remove('text-amber-100');
+                } else {
+                    btn.classList.remove('active-diff');
+                    btn.classList.add('text-amber-100');
+                }
+            });
+
+            restartGame();
+        }
+
+        function restartGame() {
+            // 重置計時與狀態
+            clearInterval(timerInterval);
+            timerInterval = null;
+            secondsElapsed = 0;
+            moves = 0;
+            matchedPairs = 0;
+            flippedCards = [];
+            isGameStarted = false;
+            isBoardLocked = false;
+
+            const config = DIFFICULTIES[currentDifficulty];
+            updateStatsDisplay();
+            loadBestScore();
+
+            // 調整網格排版
+            const mainContainer = gameBoard.parentElement;
+            mainContainer.className = `relative z-10 w-full ${config.maxWidthClass} flex-1 flex items-center justify-center my-1`;
+            gameBoard.className = `w-full grid ${config.colsClass} gap-2 sm:gap-3 transition-all duration-300`;
+
+            // 挑選角色並成對複製後洗牌 (Fisher-Yates Shuffle)
+            const selectedChars = DISNEY_CHARACTERS.slice(0, config.pairs);
+            const deck = [...selectedChars, ...selectedChars];
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+
+            // 渲染卡片 DOM
+            gameBoard.innerHTML = '';
+            deck.forEach((char, index) => {
+                const cardEl = createCardElement(char, index);
+                gameBoard.appendChild(cardEl);
+            });
+        }
+
+        function createCardElement(char, index) {
+            const scene = document.createElement('div');
+            scene.className = 'card-scene';
+            scene.dataset.characterId = char.id;
+            scene.dataset.index = index;
+
+            scene.innerHTML = `
+                <div class="card-inner">
+                    <!-- 牌背面：迪士尼魔法星光米奇徽章 -->
+                    <div class="card-face card-back">
+                        <div class="w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-amber-400/10 border border-amber-300/40 flex items-center justify-center shadow-[0_0_15px_rgba(255,215,0,0.2)]">
+                            <svg viewBox="0 0 64 64" class="w-8 h-8 sm:w-10 sm:h-10 text-amber-300 drop-shadow-[0_0_6px_rgba(255,215,0,0.7)]" fill="currentColor">
+                                <circle cx="18" cy="20" r="10"/>
+                                <circle cx="46" cy="20" r="10"/>
+                                <circle cx="32" cy="36" r="16"/>
+                                <path d="M32 25l2 5h5l-4 3 1.5 5-4.5-3-4.5 3 1.5-5-4-3h5z" fill="#172554"/>
+                            </svg>
+                        </div>
+                        <span class="mt-1.5 text-[10px] sm:text-xs tracking-widest text-amber-200/75 font-bold">DISNEY</span>
+                    </div>
+
+                    <!-- 牌正面：角色插畫與名稱標籤 -->
+                    <div class="card-face card-front" style="background: ${char.bgGradient};">
+                        <div class="w-full flex-1 flex items-center justify-center p-1 sm:p-2 overflow-hidden">
+                            ${char.svg}
+                        </div>
+                        <div class="w-full py-1 px-1.5 rounded-lg text-center shadow-sm" style="background-color: ${char.badgeBg};">
+                            <div class="text-xs sm:text-sm font-black text-white leading-tight tracking-wide truncate">
+                                ${char.name}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            scene.addEventListener('click', () => handleCardClick(scene));
+            return scene;
+        }
+
+        /**
+         * ==========================================
+         * 5. 翻牌互動與配對判定邏輯
+         * ==========================================
+         */
+        function handleCardClick(cardEl) {
+            // 若面板鎖定、卡片已翻開或已配對則忽略點擊
+            if (isBoardLocked) return;
+            if (cardEl.classList.contains('is-flipped') || cardEl.classList.contains('is-matched')) return;
+
+            // 首次翻牌時啟動計時器
+            if (!isGameStarted) {
+                isGameStarted = true;
+                startTimer();
+            }
+
+            soundFX.playFlip();
+            cardEl.classList.add('is-flipped');
+            flippedCards.push(cardEl);
+
+            if (flippedCards.length === 2) {
+                moves++;
+                updateStatsDisplay();
+                checkForMatch();
+            }
+        }
+
+        function checkForMatch() {
+            isBoardLocked = true;
+            const [card1, card2] = flippedCards;
+            const isMatch = card1.dataset.characterId === card2.dataset.characterId;
+
+            if (isMatch) {
+                // 配對成功
+                setTimeout(() => {
+                    soundFX.playMatch();
+                    card1.classList.add('is-matched');
+                    card2.classList.add('is-matched');
+
+                    // 在兩張卡片位置觸發星光粒子爆發
+                    triggerCardSparkles(card1);
+                    triggerCardSparkles(card2);
+
+                    matchedPairs++;
+                    updateStatsDisplay();
+                    flippedCards = [];
+                    isBoardLocked = false;
+
+                    // 檢查是否全部配對完成
+                    const totalPairs = DIFFICULTIES[currentDifficulty].pairs;
+                    if (matchedPairs === totalPairs) {
+                        handleGameVictory();
+                    }
+                }, 320);
+            } else {
+                // 配對失敗：稍微停留讓玩家記憶後翻回
+                setTimeout(() => {
+                    soundFX.playMismatch();
+                    card1.classList.add('is-wrong');
+                    card2.classList.add('is-wrong');
+                }, 420);
+
+                setTimeout(() => {
+                    card1.classList.remove('is-flipped', 'is-wrong');
+                    card2.classList.remove('is-flipped', 'is-wrong');
+                    flippedCards = [];
+                    isBoardLocked = false;
+                }, 950);
+            }
+        }
+
+        /**
+         * ==========================================
+         * 6. 計時器、最佳紀錄與過關慶祝
+         * ==========================================
+         */
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                secondsElapsed++;
+                statTime.textContent = formatTime(secondsElapsed);
+            }, 1000);
+        }
+
+        function formatTime(totalSeconds) {
+            const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+            const secs = (totalSeconds % 60).toString().padStart(2, '0');
+            return `${mins}:${secs}`;
+        }
+
+        function updateStatsDisplay() {
+            const totalPairs = DIFFICULTIES[currentDifficulty].pairs;
+            statMoves.textContent = moves;
+            statTime.textContent = formatTime(secondsElapsed);
+            statPairs.textContent = `${matchedPairs} / ${totalPairs}`;
+        }
+
+        function loadBestScore() {
+            try {
+                const best = localStorage.getItem(`disney_memory_best_${currentDifficulty}`);
+                statBest.textContent = best ? `${best} 步` : '--';
+            } catch (e) {
+                statBest.textContent = '--';
+            }
+        }
+
+        function saveBestScoreIfBetter(currentMoves) {
+            try {
+                const key = `disney_memory_best_${currentDifficulty}`;
+                const prevBest = localStorage.getItem(key);
+                if (!prevBest || currentMoves < parseInt(prevBest, 10)) {
+                    localStorage.setItem(key, currentMoves.toString());
+                    statBest.textContent = `${currentMoves} 步`;
+                    return true;
+                }
+            } catch (e) {
+                // 忽略無痕模式儲存限制
+            }
+            return false;
+        }
+
+        function handleGameVictory() {
+            clearInterval(timerInterval);
+            setTimeout(() => {
+                soundFX.playVictory();
+                launchConfetti();
+
+                const isNewRecord = saveBestScoreIfBetter(moves);
+                const [threeStarLimit, twoStarLimit] = DIFFICULTIES[currentDifficulty].starThresholds;
+                let starCount = 1;
+                if (moves <= threeStarLimit) starCount = 3;
+                else if (moves <= twoStarLimit) starCount = 2;
+
+                // 渲染星級
+                const starsContainer = document.getElementById('victory-stars');
+                starsContainer.innerHTML = '';
+                for (let i = 1; i <= 3; i++) {
+                    const isEarned = i <= starCount;
+                    const starSpan = document.createElement('span');
+                    starSpan.textContent = '★';
+                    starSpan.className = isEarned
+                        ? 'text-amber-300 drop-shadow-[0_0_12px_rgba(255,215,0,0.9)] scale-110 transition-transform'
+                        : 'text-slate-600';
+                    starsContainer.appendChild(starSpan);
+                }
+
+                document.getElementById('final-time').textContent = formatTime(secondsElapsed);
+                document.getElementById('final-moves').textContent = `${moves} 步`;
+
+                const recordBadge = document.getElementById('new-record-badge');
+                if (isNewRecord) {
+                    recordBadge.classList.remove('hidden');
+                } else {
+                    recordBadge.classList.add('hidden');
+                }
+
+                victoryModal.classList.remove('hidden');
+                victoryModal.classList.add('flex');
+            }, 550);
+        }
+
+        function closeModalAndRestart() {
+            victoryModal.classList.add('hidden');
+            victoryModal.classList.remove('flex');
+            stopConfetti();
+            restartGame();
+        }
+
+        function toggleSound() {
+            soundFX.muted = !soundFX.muted;
+            document.getElementById('icon-sound-on').classList.toggle('hidden', soundFX.muted);
+            document.getElementById('icon-sound-off').classList.toggle('hidden', !soundFX.muted);
+            if (!soundFX.muted) {
+                soundFX.playFlip();
+            }
+        }
+
+        /**
+         * ==========================================
+         * 7. 星光粒子與慶祝彩帶視覺特效
+         * ==========================================
+         */
+        function triggerCardSparkles(cardEl) {
+            const rect = cardEl.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const colors = ['#ffd700', '#ffffff', '#7dd3fc', '#f472b6'];
+
+            for (let i = 0; i < 12; i++) {
+                const sparkle = document.createElement('div');
+                sparkle.className = 'sparkle-burst';
+                sparkle.innerHTML = '✦';
+                sparkle.style.left = `${centerX}px`;
+                sparkle.style.top = `${centerY}px`;
+                sparkle.style.color = colors[i % colors.length];
+                sparkle.style.fontSize = `${Math.random() * 14 + 12}px`;
+
+                const angle = (Math.PI * 2 * i) / 12;
+                const dist = 45 + Math.random() * 45;
+                sparkle.style.setProperty('--tx', `${Math.cos(angle) * dist}px`);
+                sparkle.style.setProperty('--ty', `${Math.sin(angle) * dist}px`);
+
+                document.body.appendChild(sparkle);
+                setTimeout(() => sparkle.remove(), 820);
+            }
+        }
+
+        // 背景星夜粒子動畫
+        function initStarfield() {
+            const canvas = document.getElementById('starfield-canvas');
+            const ctx = canvas.getContext('2d');
+            let stars = [];
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                stars = Array.from({ length: 85 }, () => ({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    r: Math.random() * 1.8 + 0.4,
+                    alpha: Math.random(),
+                    speed: Math.random() * 0.015 + 0.004,
+                    driftY: -(Math.random() * 0.18 + 0.04)
+                }));
+            }
+
+            window.addEventListener('resize', resize);
+            resize();
+
+            function render() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                stars.forEach(s => {
+                    s.alpha += s.speed;
+                    if (s.alpha > 1 || s.alpha < 0.15) s.speed = -s.speed;
+                    s.y += s.driftY;
+                    if (s.y < 0) s.y = canvas.height;
+
+                    ctx.beginPath();
+                    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 243, 176, ${Math.max(0.1, Math.min(1, s.alpha))})`;
+                    ctx.fill();
+                });
+                requestAnimationFrame(render);
+            }
+            render();
+        }
+
+        // 過關金色星光紙屑動畫
+        let confettiAnimId = null;
+        function launchConfetti() {
+            const canvas = document.getElementById('confetti-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const colors = ['#ffd700', '#ff6b6b', '#4ecdc4', '#a78bfa', '#f472b6', '#ffffff'];
+            const pieces = Array.from({ length: 110 }, () => ({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height - canvas.height,
+                w: Math.random() * 9 + 5,
+                h: Math.random() * 6 + 4,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                vy: Math.random() * 3 + 2,
+                vx: (Math.random() - 0.5) * 2,
+                rot: Math.random() * 360,
+                rotSpeed: (Math.random() - 0.5) * 8
+            }));
+
+            function animateConfetti() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                pieces.forEach(p => {
+                    p.y += p.vy;
+                    p.x += p.vx;
+                    p.rot += p.rotSpeed;
+                    if (p.y > canvas.height) {
+                        p.y = -15;
+                        p.x = Math.random() * canvas.width;
+                    }
+
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate((p.rot * Math.PI) / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+                    ctx.restore();
+                });
+                confettiAnimId = requestAnimationFrame(animateConfetti);
+            }
+            animateConfetti();
+        }
+
+        function stopConfetti() {
+            if (confettiAnimId) {
+                cancelAnimationFrame(confettiAnimId);
+                confettiAnimId = null;
+            }
+            const canvas = document.getElementById('confetti-canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // 網頁載入完成後啟動背景星光與初始化遊戲
+        window.onload = function () {
+            initStarfield();
+            restartGame();
+        };
+    </script>
+</body>
+</html>
